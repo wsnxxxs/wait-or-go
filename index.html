@@ -1,0 +1,1022 @@
+<!DOCTYPE html>
+<html lang="en-AU">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#f7f6f2">
+<meta name="color-scheme" content="light">
+<meta name="description" content="A mid-fidelity prototype for deciding how long to wait for a bus at Toowong Village, Brisbane. Times and vehicle data are simulated.">
+<title>wait or go. · Decide once, then stop checking</title>
+<style>
+:root{
+  /* Bone paper, warm ink, one accent. Colour is spent on doubt, not on reassurance:
+     a settled estimate is ink navy, never green — the "big green 3 min" is the lie
+     this product is arguing against. */
+  --bg:#f7f6f2; --card:#fff; --ink:#1d1c1a; --body:#403e3a; --muted:#6f6b63;
+  --accent:#22384f; --accent-hi:#17293a; --accent-soft:#ebeff6;   /* live, settled, decided */
+  --amber:#8a5b18; --amber-soft:#f8efda; --amber-line:#e6d3a6;    /* moving, past the line */
+  --red:#8c3327;   --red-soft:#faeae5;   --red-line:#efccc4;      /* cancelled */
+  --line:#e5e2da;
+  --shadow:0 14px 48px rgba(32,28,22,.10);
+  --r:22px;
+}
+*{box-sizing:border-box}
+html{height:100%;font-size:16px;-webkit-text-size-adjust:100%}
+body{min-height:100%;margin:0;background:#e3e0d8;color:var(--ink);
+  font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;
+  -webkit-font-smoothing:antialiased}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer;
+  touch-action:manipulation;-webkit-tap-highlight-color:transparent;text-align:left}
+button:disabled{opacity:.45;cursor:default}
+button:focus-visible,a:focus-visible,input:focus-visible,[tabindex]:focus-visible{
+  outline:3px solid #3f72b5;outline-offset:3px;border-radius:6px}
+button:focus:not(:focus-visible){outline:none}
+h1,h2,h3,p{margin:0}
+svg{flex-shrink:0}
+.icon{width:19px;height:19px;fill:none;stroke:currentColor;stroke-width:1.75;
+  stroke-linecap:round;stroke-linejoin:round}
+.icon.sm{width:15px;height:15px}
+.sprite{position:absolute;width:0;height:0;overflow:hidden}
+.sr-only{position:absolute!important;width:1px!important;height:1px!important;
+  padding:0!important;clip:rect(0,0,0,0)!important;overflow:hidden!important;white-space:nowrap!important}
+[hidden]{display:none!important}
+
+/* ---------- device frame ---------- */
+.stage{min-height:100dvh;padding:30px 18px;display:grid;place-items:center}
+.phone{position:relative;isolation:isolate;width:404px;height:858px;
+  max-height:calc(100dvh - 60px);min-height:600px;background:var(--bg);
+  border:1px solid #d5d1c7;border-radius:44px;box-shadow:var(--shadow);
+  padding:11px;overflow:hidden}
+.screen{height:100%;border-radius:34px;overflow:hidden;background:var(--bg);position:relative}
+.app{height:100%;overflow-y:auto;overscroll-behavior:contain;
+  padding:16px 18px 26px;display:flex;flex-direction:column;gap:14px;
+  scrollbar-width:thin}
+.app::-webkit-scrollbar{width:0}
+.app > *{flex:0 0 auto}
+
+/* ---------- header ---------- */
+.top{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.wordmark{display:flex;align-items:center;gap:8px;font-weight:650;letter-spacing:-.015em;font-size:15px}
+.mark{width:28px;height:28px;border-radius:9px;background:var(--accent);color:#fff;
+  display:grid;place-items:center}
+.mark .icon{width:16px;height:16px}
+.demo-btn{display:flex;align-items:center;gap:5px;font-size:12.5px;font-weight:600;
+  color:var(--muted);padding:6px 9px;border-radius:999px;border:1px solid var(--line);background:#fff}
+.demo-btn:hover{color:var(--ink);border-color:#cfcbc1}
+
+.place{margin-top:2px}
+.eyebrow{display:flex;align-items:center;gap:6px;font-size:10.5px;font-weight:700;
+  letter-spacing:.11em;text-transform:uppercase;color:var(--muted)}
+.eyebrow .icon{width:13px;height:13px}
+.place h1{font-size:25px;font-weight:680;letter-spacing:-.024em;margin-top:5px;line-height:1.12}
+.place .sub{font-size:13px;color:var(--muted);margin-top:3px}
+
+/* ---------- arrival card ---------- */
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:17px 18px}
+.svc{display:flex;align-items:center;gap:9px}
+.route{font-weight:700;font-size:13px;background:var(--accent);color:#fff;
+  padding:4px 9px;border-radius:8px;letter-spacing:.01em}
+.svc-name{font-size:13.5px;font-weight:560;color:var(--body);flex:1;min-width:0;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.state{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:700;
+  letter-spacing:.045em;text-transform:uppercase;padding:4px 9px;border-radius:999px;
+  background:var(--accent-soft);color:var(--accent)}
+.state .icon{width:13px;height:13px}
+.state.drift{background:var(--amber-soft);color:var(--amber)}
+.state.stale{background:#edeae4;color:#6a665e}
+.state.gone{background:var(--red-soft);color:var(--red)}
+
+.eta{margin-top:15px}
+.eta-cap{font-size:12.5px;color:var(--muted);font-weight:540}
+.eta-main{display:flex;align-items:baseline;gap:9px;margin-top:2px;flex-wrap:wrap}
+.eta-clock{font-size:41px;font-weight:660;letter-spacing:-.035em;line-height:1.02}
+.eta-clock small{font-size:20px;font-weight:600;letter-spacing:-.01em;margin-left:1px}
+.eta-rel{font-size:14px;font-weight:600;color:var(--body);padding-bottom:3px}
+.eta-main.unknown .eta-clock{font-size:27px;color:#6a665e;letter-spacing:-.02em}
+.eta-main.gone .eta-clock{font-size:27px;color:var(--red);letter-spacing:-.02em}
+
+/* ---------- jitter trail ---------- */
+.trail{width:100%;margin-top:14px;border:1px solid var(--line);border-radius:14px;
+  padding:11px 12px;background:#fcfbf8;display:block}
+.trail:hover{border-color:#d6d2c8;background:#f8f7f3}
+.trail-top{display:flex;align-items:center;gap:7px;font-size:11px;font-weight:700;
+  letter-spacing:.055em;text-transform:uppercase;color:var(--muted)}
+.trail-top .icon{width:13px;height:13px}
+.spark{display:flex;align-items:flex-end;gap:4px;height:28px;margin:10px 0 9px}
+.spark i{width:13px;background:#dcd8ce;border-radius:3px;min-height:4px;display:block;flex:0 0 auto}
+.spark i.up{background:var(--amber)}
+.spark i.flat{background:#bdb8ad}
+.spark i.now{background:var(--accent)}
+.trail-read{font-size:13px;line-height:1.42;color:var(--body);font-weight:560;
+  display:flex;align-items:flex-start;justify-content:space-between;gap:8px}
+.trail-read b{font-weight:700;color:var(--ink)}
+.trail.warn{background:var(--amber-soft);border-color:var(--amber-line)}
+.trail.warn .trail-top{color:var(--amber)}
+.trail.warn .spark i{background:#e6d3a6}
+.trail.warn .spark i.up{background:var(--amber)}
+
+.freshness{display:flex;align-items:center;gap:6px;margin-top:13px;
+  font-size:12px;color:var(--muted);width:100%}
+.freshness .icon{width:14px;height:14px}
+.freshness .go{margin-left:auto;display:flex;align-items:center;gap:3px;
+  color:var(--accent);font-weight:640}
+
+/* ---------- the line (hero) ---------- */
+.line-card{border-radius:var(--r);padding:17px 18px;border:1.5px solid var(--accent);
+  background:#fff;box-shadow:0 2px 16px rgba(34,56,79,.08);position:relative;overflow:hidden}
+.line-card.armed{background:linear-gradient(176deg,#22384f00,#00000000);
+  background-color:var(--accent);border-color:var(--accent);color:#e9eef4}
+.line-card.past{border-color:var(--amber);background:linear-gradient(176deg,#faf1de,#f6ead4)}
+.line-card.none{border:1px dashed #cbc6bb;background:#fcfbf8}
+.line-cap{display:flex;align-items:center;gap:6px;font-size:10.5px;font-weight:750;
+  letter-spacing:.11em;text-transform:uppercase;color:var(--accent)}
+.line-card.armed .line-cap{color:#9fb4c9}
+.line-card.past .line-cap{color:var(--amber)}
+.line-card.none .line-cap{color:var(--muted)}
+.line-cap .icon{width:13px;height:13px}
+.line-main{display:flex;align-items:baseline;gap:10px;margin-top:7px;flex-wrap:wrap}
+.line-time{font-size:37px;font-weight:680;letter-spacing:-.035em;line-height:1;color:var(--accent)}
+.line-time small{font-size:18px;font-weight:600;margin-left:1px}
+.line-card.armed .line-time{color:#fff}
+.line-card.past .line-time{color:var(--amber)}
+.line-left{font-size:13.5px;font-weight:620;color:var(--accent);padding-bottom:3px}
+.line-card.armed .line-left{color:#adc1d4}
+.line-card.past .line-left{color:var(--amber)}
+.line-why{font-size:13.5px;line-height:1.46;color:#2e3a47;margin-top:9px}
+.line-card.armed .line-why{color:#d3dee9}
+.line-card.past .line-why{color:#5e4514}
+.line-card.none .line-why{color:var(--body)}
+.line-why b{font-weight:680}
+.line-act{display:flex;gap:8px;margin-top:13px;flex-wrap:wrap}
+
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:7px;
+  padding:12px 16px;border-radius:13px;font-size:14.5px;font-weight:640;
+  background:var(--accent);color:#fff;flex:1;min-width:130px}
+.btn:hover{background:var(--accent-hi)}
+.btn.ghost{background:#fff;color:var(--accent);border:1px solid #c8cfd9;flex:0 0 auto;min-width:0;padding:12px 14px}
+.btn.ghost:hover{background:#f0f2f6}
+.btn.onDark{background:#fff;color:var(--accent)}
+.btn.onDark:hover{background:#edf0f5}
+.btn.ghostDark{background:transparent;color:#c9d4e1;border:1px solid #46617c;flex:0 0 auto;min-width:0;padding:12px 14px}
+.btn.ghostDark:hover{background:#2c4761}
+.btn.amber{background:var(--amber);color:#fff}
+.btn.amber:hover{background:#6e4a14}
+
+/* ---------- deadline row ---------- */
+.goal{display:flex;align-items:center;gap:11px;width:100%;padding:13px 15px;
+  background:#fff;border:1px solid var(--line);border-radius:16px}
+.goal:hover{border-color:#d6d2c8}
+.goal .ic{width:32px;height:32px;border-radius:10px;background:var(--accent-soft);
+  color:var(--accent);display:grid;place-items:center;flex-shrink:0}
+.goal .ic .icon{width:16px;height:16px}
+.goal-txt{flex:1;min-width:0}
+.goal-l{font-size:12px;color:var(--muted);font-weight:540}
+.goal-v{font-size:14px;font-weight:620;margin-top:1px}
+.goal .icon.chev{color:#aba69c}
+
+/* ---------- alternatives ---------- */
+.alts{display:flex;flex-direction:column;gap:9px}
+.alts-h{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin-bottom:1px}
+.alts-h h2{font-size:14.5px;font-weight:660;letter-spacing:-.012em}
+.alts-h .note{font-size:11.5px;color:var(--muted)}
+.alt{display:flex;align-items:center;gap:11px;width:100%;padding:12px 14px;
+  background:#fff;border:1px solid var(--line);border-radius:15px}
+.alt:hover{border-color:#d6d2c8}
+.alt.best{border-color:#c6ceda;background:#fafbfd}
+.alt .badge{width:34px;height:34px;border-radius:10px;display:grid;place-items:center;
+  background:#edeae4;color:var(--body);flex-shrink:0;font-size:11px;font-weight:700}
+.alt.best .badge{background:var(--accent-soft);color:var(--accent)}
+.alt-txt{flex:1;min-width:0}
+.alt-t{font-size:13.5px;font-weight:620;display:flex;align-items:center;gap:6px}
+.alt-s{font-size:12px;color:var(--muted);margin-top:2px;line-height:1.35}
+.alt-r{text-align:right;flex-shrink:0}
+.alt-r .big{font-size:14px;font-weight:660;white-space:nowrap}
+.alt-r .small{font-size:11.5px;color:var(--muted);margin-top:1px;white-space:nowrap}
+.alt-r .small.ok{color:var(--accent);font-weight:620}
+.alt-r .small.no{color:var(--red);font-weight:620}
+.tag{font-size:9.5px;font-weight:750;letter-spacing:.06em;text-transform:uppercase;
+  padding:2px 6px;border-radius:5px;background:var(--accent-soft);color:var(--accent)}
+.tag.cost{background:#edeae4;color:#6a665e}
+
+/* ---------- quiet mode ---------- */
+.quiet-wrap{height:100%;display:flex;flex-direction:column;justify-content:center;
+  align-items:center;text-align:center;padding:30px 30px 40px;gap:4px}
+.quiet-eyebrow{font-size:10.5px;font-weight:750;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.quiet-time{font-size:62px;font-weight:660;letter-spacing:-.04em;line-height:1;margin-top:10px;color:var(--accent)}
+.quiet-time small{font-size:26px;font-weight:600}
+.quiet-msg{font-size:15px;line-height:1.5;color:var(--body);margin-top:14px;max-width:250px}
+.quiet-msg b{font-weight:680;color:var(--ink)}
+.quiet-sub{font-size:12.5px;color:var(--muted);margin-top:16px;max-width:240px;line-height:1.45}
+.quiet-acts{display:flex;flex-direction:column;gap:9px;margin-top:26px;width:100%;max-width:250px}
+
+/* ---------- footer ---------- */
+.foot{display:flex;align-items:center;gap:8px;font-size:11px;color:var(--muted);
+  margin-top:auto;padding-top:8px}
+.dot{width:3px;height:3px;border-radius:50%;background:#c3beb4}
+
+/* ---------- sheet ---------- */
+.shade{position:absolute;inset:0;background:rgba(26,24,20,.38);z-index:20;
+  animation:fade .18s ease}
+@keyframes fade{from{opacity:0}}
+.sheet{position:absolute;left:0;right:0;bottom:0;z-index:21;background:var(--bg);
+  border-radius:26px 26px 34px 34px;max-height:88%;display:flex;flex-direction:column;
+  box-shadow:0 -10px 40px rgba(30,26,20,.20);animation:up .22s cubic-bezier(.2,.7,.3,1)}
+@keyframes up{from{transform:translateY(16px);opacity:.4}}
+.sheet-grab{width:36px;height:4px;border-radius:99px;background:#d3cfc5;margin:9px auto 0}
+.sheet-h{display:flex;align-items:center;gap:10px;padding:12px 18px 10px}
+.sheet-h h2{font-size:16.5px;font-weight:670;letter-spacing:-.018em;flex:1}
+.x{width:30px;height:30px;border-radius:50%;background:#ece9e2;display:grid;place-items:center;color:var(--body)}
+.x:hover{background:#e2ded5}
+.sheet-b{padding:0 18px 22px;overflow-y:auto;display:flex;flex-direction:column;gap:12px}
+.sheet-b p{font-size:13.5px;line-height:1.55;color:var(--body)}
+.sheet-b p.small{font-size:12px;color:var(--muted);line-height:1.5}
+.rowline{display:flex;align-items:center;justify-content:space-between;gap:10px;
+  padding:11px 0;border-bottom:1px solid var(--line);font-size:13.5px}
+.rowline:last-child{border-bottom:0}
+.rowline .k{color:var(--muted);font-size:12.5px}
+.rowline .v{font-weight:620;text-align:right}
+.rowline .v.warn{color:var(--amber)}
+.hist{display:flex;flex-direction:column;gap:0}
+.hrow{display:grid;grid-template-columns:62px 1fr auto;align-items:center;gap:10px;
+  padding:9px 0;border-bottom:1px solid var(--line);font-size:13px}
+.hrow:last-child{border-bottom:0}
+.hrow .t{color:var(--muted);font-size:12px;font-variant-numeric:tabular-nums}
+.hrow .p{font-weight:620;font-variant-numeric:tabular-nums}
+.hrow .d{font-size:12px;font-weight:640;color:var(--amber);font-variant-numeric:tabular-nums}
+.hrow .d.zero{color:var(--muted);font-weight:540}
+.hrow.first .p{color:var(--muted)}
+.chips{display:flex;flex-wrap:wrap;gap:7px}
+.chip{padding:9px 13px;border-radius:11px;border:1px solid var(--line);background:#fff;
+  font-size:13.5px;font-weight:600;font-variant-numeric:tabular-nums}
+.chip:hover{border-color:#ccc7bc}
+.chip[aria-pressed=true]{background:var(--accent);color:#fff;border-color:var(--accent)}
+.scene{display:flex;align-items:center;gap:11px;width:100%;padding:11px 13px;
+  border-radius:13px;border:1px solid var(--line);background:#fff}
+.scene:hover{border-color:#ccc7bc}
+.scene[aria-current=true]{border-color:var(--accent);background:var(--accent-soft)}
+.scene .n{width:26px;height:26px;border-radius:8px;background:#edeae4;display:grid;
+  place-items:center;font-size:11px;font-weight:700;color:var(--body);flex-shrink:0}
+.scene[aria-current=true] .n{background:var(--accent);color:#fff}
+.scene .st{font-size:13.5px;font-weight:620}
+.scene .ss{font-size:11.5px;color:var(--muted);margin-top:1px}
+.callout{padding:12px 14px;border-radius:13px;background:var(--amber-soft);
+  border:1px solid var(--amber-line);font-size:13px;line-height:1.5;color:#5e4514}
+.callout.calm{background:var(--accent-soft);border-color:#cfd6e0;color:#23384c}
+.callout b{font-weight:680}
+
+/* ---------- toast ---------- */
+.toast{position:absolute;left:14px;right:14px;bottom:16px;z-index:30;
+  background:#24231f;color:#efede7;border-radius:15px;padding:13px 15px;
+  font-size:13px;line-height:1.45;box-shadow:0 10px 30px rgba(24,22,18,.32);
+  animation:up .2s ease;display:flex;gap:9px;align-items:flex-start}
+.toast .icon{color:#9fb4c9;margin-top:1px}
+
+.nojs{max-width:420px;margin:60px auto;padding:20px;font-size:14px;line-height:1.6;text-align:center;color:#403e3a}
+
+@media (max-width:470px){
+  .stage{padding:0}
+  .phone{width:100%;height:100dvh;max-height:none;border:0;border-radius:0;padding:0;box-shadow:none}
+  .screen{border-radius:0}
+  .sheet{border-radius:22px 22px 0 0}
+}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<svg class="sprite" aria-hidden="true" xmlns="http://www.w3.org/2000/svg"><defs>
+<symbol id="i-bus" viewBox="0 0 24 24"><rect x="5" y="3" width="14" height="17" rx="3"/><path d="M5 11h14M8 20v2m8-2v2M9 6h6"/><path d="M8.5 15h.01m7 0h.01" stroke-width="3"/></symbol>
+<symbol id="i-pin" viewBox="0 0 24 24"><path d="M19 10c0 5-7 11-7 11S5 15 5 10a7 7 0 0 1 14 0Z"/><circle cx="12" cy="10" r="2.5"/></symbol>
+<symbol id="i-live" viewBox="0 0 24 24"><path d="M5 5a10 10 0 0 0 0 14M19 5a10 10 0 0 1 0 14M8 8a6 6 0 0 0 0 8m8-8a6 6 0 0 1 0 8"/><circle cx="12" cy="12" r="1.6" fill="currentColor" stroke="none"/></symbol>
+<symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
+<symbol id="i-flag" viewBox="0 0 24 24"><path d="M5 21V4m0 0h12l-2.5 4L17 12H5"/></symbol>
+<symbol id="i-chev" viewBox="0 0 24 24"><path d="m9 5 7 7-7 7"/></symbol>
+<symbol id="i-down" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
+<symbol id="i-arrow" viewBox="0 0 24 24"><path d="M4 12h16m-6-6 6 6-6 6"/></symbol>
+<symbol id="i-walk" viewBox="0 0 24 24"><circle cx="13" cy="4" r="2"/><path d="m9 21 2-6-2.5-3 1-5 3 2 2.5 2M11 15l-1.5 3M14.5 13l1.5 4"/></symbol>
+<symbol id="i-train" viewBox="0 0 24 24"><rect x="5" y="3" width="14" height="13" rx="3"/><path d="M5 11h14M7 21l2-3m8 3-2-3"/><path d="M9 7h6"/></symbol>
+<symbol id="i-car" viewBox="0 0 24 24"><path d="M4 16v3m16-3v3M3 16h18v-4l-2-5H5L3 12Z"/><path d="M6.5 13h.01m10.99 0h.01" stroke-width="3"/></symbol>
+<symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12 4.5 4.5L19 7"/></symbol>
+<symbol id="i-x" viewBox="0 0 24 24"><path d="m6 6 12 12M18 6 6 18"/></symbol>
+<symbol id="i-alert" viewBox="0 0 24 24"><path d="M12 4 2.5 20h19L12 4Z"/><path d="M12 10v4m0 3h.01" stroke-width="2"/></symbol>
+<symbol id="i-gap" viewBox="0 0 24 24"><path d="M8.5 3.7A9 9 0 0 0 3.7 8.5M3 12a9 9 0 0 0 1.2 4.5M7.5 19.8A9 9 0 0 0 12 21m3.5-.7a9 9 0 0 0 4.8-4.8M21 12a9 9 0 0 0-1.2-4.5M16.5 4.2A9 9 0 0 0 12 3"/><path d="M12 8v5m0 3h.01"/></symbol>
+<symbol id="i-cal" viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="16" rx="2"/><path d="M8 3v4m8-4v4M4 11h16"/></symbol>
+<symbol id="i-shift" viewBox="0 0 24 24"><path d="M4 7h10a5 5 0 0 1 0 10H7m0 0 4-4m-4 4 4 4"/></symbol>
+<symbol id="i-moon" viewBox="0 0 24 24"><path d="M20 14.5A8.5 8.5 0 0 1 9.5 4 8.5 8.5 0 1 0 20 14.5Z"/></symbol>
+<symbol id="i-eye" viewBox="0 0 24 24"><path d="M2 12s3.6-6.5 10-6.5S22 12 22 12s-3.6 6.5-10 6.5S2 12 2 12Z"/><circle cx="12" cy="12" r="2.8"/></symbol>
+<symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v6m0-10h.01" stroke-width="2"/></symbol>
+</defs></svg>
+
+<div class="stage"><div class="phone" id="phone"><div class="screen">
+  <div class="app" id="app"></div>
+  <div class="shade" id="shade" hidden data-act="close"></div>
+  <section class="sheet" id="sheet" hidden role="dialog" aria-modal="true" aria-labelledby="sheet-title">
+    <div class="sheet-grab" aria-hidden="true"></div>
+    <div class="sheet-h"><h2 id="sheet-title" tabindex="-1"></h2>
+      <button class="x" data-act="close" aria-label="Close"><svg class="icon" aria-hidden="true"><use href="#i-x"/></svg></button></div>
+    <div class="sheet-b" id="sheet-b"></div>
+  </section>
+  <aside class="toast" id="toast" hidden></aside>
+  <div class="sr-only" id="live" role="status" aria-live="polite" aria-atomic="true"></div>
+</div></div></div>
+
+<noscript><p class="nojs">This is an interactive prototype and needs JavaScript. All services, times and vehicle positions are simulated. This is a design demonstration, not a live transport tool.</p></noscript>
+
+<script>
+'use strict';
+/* ============================================================================
+   wait or go. — mid-fi prototype v4
+   DECO2500/7250 Team Design Proposal
+
+   Scenario: High St / Toowong Village (stop 23), route 470 toward the city.
+   Stop name, route number and the ~20-minute weekday headway are real.
+   Every arrival time, vehicle position and service notice below is FABRICATED
+   for demonstration. Nothing here touches a network, a location permission,
+   an analytics endpoint or any browser storage. The clock only moves when you
+   move it, so the same scene always shows the same thing.
+
+   The design bet: the number will keep being wrong. Build for the decision,
+   not for the prediction.
+   ========================================================================== */
+
+const $ = id => document.getElementById(id);
+const ic = (n, cls='') => `<svg class="icon ${cls}" aria-hidden="true"><use href="#i-${n}"/></svg>`;
+const esc = v => String(v).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const T = (h,m) => h*60+m;                       // minutes since midnight
+const hhmm = (t, html=false) => {
+  const h = Math.floor(t/60)%24, m = t%60, p = h<12?'am':'pm';
+  const s = `${h%12||12}:${String(m).padStart(2,'0')}`;
+  return html ? `${s}<small>${p}</small>` : `${s} ${p}`;
+};
+const plural = (n,w) => w==='min' ? `${n} min` : `${n} ${w}${n===1?'':'s'}`;
+
+/* --- fixed facts for this scenario ------------------------------------- */
+const STOP   = 'High St / Toowong Village';
+const ROUTE  = '470';
+const HEAD   = 'City via Milton Rd';
+const RIDE   = 19;                 // demo ride time, stop 23 -> Roma St
+const WALK_TRAIN = 9;              // walk to Auchenflower station
+const TRAIN_RIDE = 8;
+const TRAINS = [T(14,49), T(15,4), T(15,19)];
+const LATER_470 = [T(14,52), T(15,12)];
+const RIDESHARE = { mins: 17, cost: '$24–31' };
+const FARE = '50c';
+
+/* --- the scene sequence -------------------------------------------------
+   Each scene is a frozen moment. `trail` is the list of arrival estimates
+   this service has published so far, oldest first, each with the wall-clock
+   time it was published. That list is the thing every other app throws away.
+------------------------------------------------------------------------- */
+const SCENES = [
+  { id:'settled', label:'A settled wait', hint:'Same time, four updates running',
+    now:T(14,23), feed:T(14,22), arr:T(14,32), stops:3, pos:22,
+    trail:[[T(14,16),T(14,32)],[T(14,18),T(14,32)],[T(14,20),T(14,32)],[T(14,22),T(14,32)]] },
+
+  { id:'drifting', label:'The estimate starts moving', hint:'Three revisions in nine minutes',
+    now:T(14,29), feed:T(14,28), arr:T(14,38), stops:3, pos:27,
+    trail:[[T(14,19),T(14,32)],[T(14,22),T(14,34)],[T(14,25),T(14,36)],[T(14,28),T(14,38)]] },
+
+  { id:'stale', label:'The feed goes quiet', hint:'Nothing heard for eight minutes',
+    now:T(14,38), feed:T(14,30), arr:T(14,40), stops:3, pos:29, stale:true,
+    trail:[[T(14,19),T(14,32)],[T(14,22),T(14,34)],[T(14,25),T(14,36)],[T(14,30),T(14,40)]] },
+
+  { id:'crossed', label:'Your line arrives', hint:'2:55 · the bus is close and still too late',
+    now:T(14,55), feed:T(14,51), arr:T(14,58), stops:1, pos:71,
+    trail:[[T(14,19),T(14,32)],[T(14,22),T(14,34)],[T(14,25),T(14,36)],[T(14,30),T(14,40)],
+           [T(14,42),T(14,49)],[T(14,51),T(14,58)]] },
+
+  { id:'cancelled', label:'Cancelled (other ending)', hint:'A stated fact, not missing data',
+    now:T(14,40), feed:T(14,39), arr:null, stops:null, pos:29, cancelled:true, notice:T(14,39),
+    trail:[[T(14,19),T(14,32)],[T(14,22),T(14,34)],[T(14,25),T(14,36)],[T(14,30),T(14,40)]] },
+
+  { id:'recovered', label:'It turns up (other ending)', hint:'Updates return and the bus beats your line',
+    now:T(14,50), feed:T(14,50), arr:T(14,53), stops:1, pos:76,
+    trail:[[T(14,19),T(14,32)],[T(14,22),T(14,34)],[T(14,25),T(14,36)],[T(14,30),T(14,40)],
+           [T(14,44),T(14,52)],[T(14,50),T(14,53)]] }
+];
+
+/* --- mutable state ------------------------------------------------------ */
+const state = {
+  scene: 0,
+  deadline: T(15,15),     // "I need to be in the city by 3:15"
+  armed: false,           // has the rider committed to the line?
+  quiet: false,           // phone-away mode
+  overrode: false,        // chose to keep waiting past the line
+  sheet: null,
+  draftDeadline: null
+};
+let lastFocus = null, toastTimer = null;
+
+/* --- derived ------------------------------------------------------------ */
+const S = () => SCENES[state.scene];
+const arrivesCity = () => S().arr === null ? null : S().arr + RIDE;
+const feedAge = () => S().now - S().feed;
+const isStale = () => !!S().stale && feedAge() >= 4;
+const isGone = () => !!S().cancelled;
+
+/** How much the estimate has moved, and whether it is settling. */
+function drift() {
+  const t = S().trail;
+  const first = t[0][1], last = t[t.length-1][1];
+  let moves = 0;
+  for (let i=1;i<t.length;i++) if (t[i][1] !== t[i-1][1]) moves++;
+  const span = t[t.length-1][0] - t[0][0];
+  // "settling" = the last two published estimates agree
+  const settling = t.length>1 && t[t.length-1][1] === t[t.length-2][1];
+  return { moves, total: last-first, span, settling, first, last };
+}
+
+/** The walk-away line: the last minute at which the best backup still works.
+    Backup = walk to Auchenflower + first train that gets you there in time. */
+function backup() {
+  if (state.deadline === null) return null;
+  // latest train that still lands before the deadline
+  const ok = TRAINS.filter(t => t + TRAIN_RIDE <= state.deadline);
+  if (!ok.length) return null;
+  const train = ok[ok.length-1];
+  return {
+    mode: 'train', train,
+    leaveBy: train - WALK_TRAIN,
+    arrive: train + TRAIN_RIDE,
+    label: 'Auchenflower station',
+    detail: `${plural(WALK_TRAIN,'min')} walk, then the ${hhmm(train)} Ipswich line`
+  };
+}
+function theLine() {
+  const b = backup();
+  if (!b) return null;
+  return b.leaveBy;
+}
+const minsToLine = () => { const l = theLine(); return l === null ? null : l - S().now; };
+const linePassed = () => { const m = minsToLine(); return m !== null && m <= 0; };
+
+/** Does the bus, as currently estimated, still make the deadline? */
+function busVerdict() {
+  if (state.deadline === null) return { kind:'nogoal' };
+  if (isGone()) return { kind:'gone' };
+  if (isStale()) return { kind:'unknown' };   // an old number is not a prediction
+  const a = arrivesCity();
+  if (a === null) return { kind:'unknown' };
+  const slack = state.deadline - a;
+  if (slack >= 5)  return { kind:'fine', slack };
+  if (slack >= 0)  return { kind:'tight', slack };
+  return { kind:'late', slack:-slack };
+}
+
+/* --- announcements ------------------------------------------------------ */
+let annTimer = null;
+function announce(msg) {
+  clearTimeout(annTimer);
+  $('live').textContent = '';
+  annTimer = setTimeout(() => { $('live').textContent = msg; }, 40);
+}
+function toast(msg, icon='check') {
+  const el = $('toast');
+  el.innerHTML = ic(icon) + `<span>${msg}</span>`;
+  el.hidden = false;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { el.hidden = true; }, 3600);
+  announce(msg);
+}
+
+/* ========================================================================
+   RENDER
+   ====================================================================== */
+function render() {
+  $('app').innerHTML = state.quiet ? quietView() : fullView();
+  $('phone').style.setProperty('--x','');
+}
+
+/* ---------- quiet mode: the app's own success condition ---------------- */
+function quietView() {
+  const l = theLine(), m = minsToLine(), b = backup();
+  const passed = linePassed();
+  return `
+  <div class="quiet-wrap">
+    <p class="quiet-eyebrow">${ROUTE} at ${esc(STOP.split(' / ')[1])}</p>
+    ${passed ? `
+      <p class="quiet-time">${hhmm(S().now,true)}</p>
+      <p class="quiet-msg">Your line has passed.<br><b>Time to walk.</b></p>
+      <p class="quiet-sub">${esc(b ? b.detail : '')}</p>
+    ` : `
+      <p class="quiet-time">${hhmm(l,true)}</p>
+      <p class="quiet-msg">You're fine until then.<br><b>Put your phone away.</b></p>
+      <p class="quiet-sub">We'll only interrupt you for the bus arriving, or for your line at ${hhmm(l)}. Nothing else is worth your attention.</p>
+    `}
+    <div class="quiet-acts">
+      <button class="btn" data-act="unquiet">${ic('eye')} Show me the detail</button>
+      ${passed ? `<button class="btn ghost" style="flex:1" data-act="keep-waiting">Actually, I'll keep waiting</button>` : ''}
+    </div>
+  </div>`;
+}
+
+/* ---------- full view --------------------------------------------------- */
+function fullView() {
+  return [
+    header(), place(), arrivalCard(), lineCard(), goalRow(), altList(), footer()
+  ].join('');
+}
+
+function header() {
+  return `<div class="top">
+    <div class="wordmark"><span class="mark">${ic('bus')}</span><span>wait or go.</span></div>
+    <button class="demo-btn" data-act="scenes" aria-haspopup="dialog">
+      <span>${esc(S().label)}</span>${ic('down','sm')}</button>
+  </div>`;
+}
+
+function place() {
+  return `<div class="place">
+    <p class="eyebrow">${ic('pin')} At your stop</p>
+    <h1>${esc(STOP)}</h1>
+    <p class="sub">Stop 23 · toward the city · ${FARE} fare</p>
+  </div>`;
+}
+
+function arrivalCard() {
+  const s = S(), d = drift(), gone = isGone(), stale = isStale();
+
+  /* --- state pill: four honest states, never one confident number ----- */
+  let pill, pillCls;
+  if (gone)            { pill = `${ic('x','sm')} Cancelled`;  pillCls = 'gone'; }
+  else if (stale)      { pill = `${ic('gap','sm')} No update`; pillCls = 'stale'; }
+  else if (!d.settling){ pill = `${ic('shift','sm')} Moving`;  pillCls = 'drift'; }
+  else                 { pill = `${ic('live','sm')} Live`;     pillCls = ''; }
+
+  /* --- the headline number ------------------------------------------- */
+  let etaCap, etaMain, etaCls = '';
+  if (gone) {
+    etaCap = 'This service';
+    etaMain = `<span class="eta-clock">Not running</span>`;
+    etaCls = 'gone';
+  } else if (stale) {
+    etaCap = `Last estimate, ${plural(feedAge(),'min')} old`;
+    etaMain = `<span class="eta-clock">${hhmm(s.arr,true)}</span>
+               <span class="eta-rel">not current</span>`;
+    etaCls = 'unknown';
+  } else {
+    const mins = s.arr - s.now;
+    etaCap = 'Arrives about';
+    etaMain = `<span class="eta-clock">${hhmm(s.arr,true)}</span>
+               <span class="eta-rel">in ${plural(mins,'min')}</span>`;
+  }
+
+  /* --- the jitter trail: the history other apps discard ---------------- */
+  const bars = s.trail.map((p,i) => {
+    const prev = i ? s.trail[i-1][1] : p[1];
+    const delta = p[1] - prev;
+    const h = 8 + Math.min(18, Math.abs(p[1]-d.first) * 2.6);
+    const cls = i === s.trail.length-1 ? (delta>0?'up':'now') : (delta>0?'up':'flat');
+    return `<i class="${cls}" style="height:${h}px"></i>`;
+  }).join('');
+
+  let read, warn = '';
+  if (gone) {
+    read = `Cancelled at ${hhmm(s.notice)}. <b>This is a notice, not a gap in the data.</b>`;
+  } else if (stale) {
+    read = `<b>Nothing new for ${plural(feedAge(),'min')}.</b> The time above is the last thing we were told, not where the bus is now.`;
+    warn = ' warn';
+  } else if (d.moves >= 3) {
+    read = `<b>Moved ${d.moves} times in ${plural(d.span,'min')}</b>, all later. This estimate isn't settling.`;
+    warn = ' warn';
+  } else if (d.moves > 0) {
+    read = `Moved ${plural(d.total,'min')} later since ${hhmm(d.first)}, then held.`;
+  } else {
+    read = `<b>Steady for ${plural(d.span,'min')}.</b> Same time every update.`;
+  }
+
+  const freshTxt = gone ? `Notice received ${plural(s.now-s.notice,'min')} ago`
+    : stale ? `Last heard from this bus ${plural(feedAge(),'min')} ago`
+    : feedAge() === 0 ? 'Updated just now' : `Updated ${plural(feedAge(),'min')} ago`;
+
+  return `<section class="card" aria-label="Arrival information for route ${ROUTE}">
+    <div class="svc">
+      <span class="route">${ROUTE}</span>
+      <span class="svc-name">${esc(HEAD)}</span>
+      <span class="state ${pillCls}">${pill}</span>
+    </div>
+    <div class="eta">
+      <p class="eta-cap">${etaCap}</p>
+      <div class="eta-main ${etaCls}">${etaMain}</div>
+    </div>
+    <button class="trail${warn}" data-act="history" aria-haspopup="dialog"
+      aria-label="Estimate history. ${esc(read.replace(/<[^>]+>/g,''))} Open full history.">
+      <span class="trail-top">${ic('shift','sm')} What this estimate has done</span>
+      <span class="spark" aria-hidden="true">${bars}</span>
+      <span class="trail-read"><span>${read}</span>${ic('chev','sm')}</span>
+    </button>
+    <button class="freshness" data-act="history" aria-haspopup="dialog">
+      ${ic('clock','sm')}<span>${freshTxt}</span>
+      <span class="go">Details ${ic('chev','sm')}</span>
+    </button>
+  </section>`;
+}
+
+/* ---------- THE LINE: the core of the design ---------------------------- */
+function lineCard() {
+  const b = backup(), l = theLine(), m = minsToLine(), v = busVerdict();
+
+  if (state.deadline === null) {
+    // no deadline set: fall back to the frequency argument
+    const next = LATER_470.find(t => t > S().now);
+    return `<section class="line-card none" aria-label="Your waiting line">
+      <p class="line-cap">${ic('flag')} No deadline set</p>
+      <p class="line-why" style="margin-top:8px">You're flexible, so there's no line to draw. The next ${ROUTE}
+        after this one is <b>${hhmm(next)}</b>, about ${plural(next-S().now,'min')} away, so leaving
+        early wouldn't gain you much.</p>
+      <div class="line-act"><button class="btn" data-act="goal">${ic('cal')} Add an arrive-by time</button></div>
+    </section>`;
+  }
+
+  if (!b) {
+    return `<section class="line-card past" aria-label="Your waiting line">
+      <p class="line-cap">${ic('alert')} No backup left</p>
+      <p class="line-why" style="margin-top:8px">Nothing else gets you there by <b>${hhmm(state.deadline)}</b>.
+        Waiting is the only option left, which is worth knowing too.</p>
+      <div class="line-act"><button class="btn ghost" style="flex:1" data-act="goal">Change my arrive-by time</button></div>
+    </section>`;
+  }
+
+  const passed = linePassed() && !state.overrode;
+
+  /* --- past the line: one decision, two buttons ---------------------- */
+  if (passed) {
+    return `<section class="line-card past" aria-label="Your waiting line has passed" id="line">
+      <p class="line-cap">${ic('flag')} It's ${hhmm(S().now)} · your line</p>
+      <div class="line-main">
+        <span class="line-time">Time to walk</span>
+      </div>
+      <p class="line-why">You set this ${plural(S().now-drift().first,'min')} ago, before the wait had a
+        hold on you. <b>${esc(b.label)}</b>: ${esc(b.detail)}. That still gets you in by
+        <b>${hhmm(b.arrive)}</b>${busVerdict().kind==='late'
+          ? `, while the bus now puts you in at ${hhmm(arrivesCity())}`:''}.</p>
+      <div class="line-act">
+        <button class="btn amber" data-act="take-backup">${ic('walk')} Start walking</button>
+        <button class="btn ghost" data-act="keep-waiting">Keep waiting</button>
+      </div>
+    </section>`;
+  }
+
+  /* --- they crossed the line and chose to stay ------------------------ */
+  if (linePassed() && state.overrode) {
+    const a = arrivesCity();
+    let cost;
+    if (isGone())      cost = `The ${ROUTE} isn't coming, so you're waiting for the ${hhmm(LATER_470.find(t=>t>S().now))}.`;
+    else if (a===null) cost = `We still can't say when it arrives. Nothing else beats it from here either.`;
+    else if (a > state.deadline)
+      cost = `On the current estimate you'll be in the city at <b>${hhmm(a)}</b>, about ${plural(a-state.deadline,'min')} after your ${hhmm(state.deadline)}. Nothing else beats that now.`;
+    else
+      cost = `On the current estimate you'll still make ${hhmm(state.deadline)}, with ${plural(state.deadline-a,'min')} to spare.`;
+    return `<section class="line-card none" aria-label="Past your line, waiting anyway" id="line">
+      <p class="line-cap">${ic('clock')} Past your line · ${hhmm(S().now)}</p>
+      <div class="line-main" style="margin-top:4px">
+        <span class="line-time" style="font-size:24px;color:var(--ink)">You're waiting anyway.</span>
+      </div>
+      <p class="line-why">Fine. You know this trip better than we do. ${cost} We'll stop asking.</p>
+      <div class="line-act">
+        <button class="btn ghost" style="flex:1" data-act="goal">Change my arrive-by time</button>
+        <button class="btn ghost" data-act="alts" aria-haspopup="dialog">Other ways</button>
+      </div>
+    </section>`;
+  }
+
+  /* --- armed: committed, counting down to the line ------------------- */
+  if (state.armed) {
+    return `<section class="line-card armed" aria-label="Your waiting line" id="line">
+      <p class="line-cap">${ic('check')} Decision locked in</p>
+      <div class="line-main">
+        <span class="line-time">${hhmm(l,true)}</span>
+        <span class="line-left">${m} min from now</span>
+      </div>
+      <p class="line-why">If the ${ROUTE} isn't here by then, you walk to <b>${esc(b.label)}</b>.
+        We'll tell you. <b>You don't need to keep checking.</b></p>
+      <div class="line-act">
+        <button class="btn onDark" data-act="quiet">${ic('moon')} Put my phone away</button>
+        <button class="btn ghostDark" data-act="unarm">Undo</button>
+      </div>
+    </section>`;
+  }
+
+  /* --- default: the line, offered ------------------------------------ */
+  let why;
+  if (v.kind === 'gone') {
+    why = `The ${ROUTE} isn't coming. <b>${esc(b.label)}</b>: ${esc(b.detail)}. That gets you
+           in by <b>${hhmm(b.arrive)}</b>, ${plural(state.deadline-b.arrive,'min')} inside your ${hhmm(state.deadline)}.`;
+  } else if (v.kind === 'late') {
+    why = `On the current estimate the bus puts you in at ${hhmm(arrivesCity())},
+           <b>${plural(v.slack,'min')} after</b> your ${hhmm(state.deadline)}.
+           ${esc(b.label)} still works if you leave by then.`;
+  } else if (v.kind === 'unknown') {
+    why = `We can't tell you when the bus arrives, so we'll tell you the one thing we can:
+           leave by <b>${hhmm(l)}</b> and <b>${esc(b.label)}</b> still gets you in by ${hhmm(b.arrive)}.`;
+  } else {
+    why = `After that, the bus can't beat <b>${esc(b.label)}</b>: ${esc(b.detail)},
+           landing you at ${hhmm(b.arrive)}, inside your ${hhmm(state.deadline)}.`;
+  }
+
+  return `<section class="line-card" aria-label="Your waiting line" id="line">
+    <p class="line-cap">${ic('flag')} You can wait until</p>
+    <div class="line-main">
+      <span class="line-time">${hhmm(l,true)}</span>
+      <span class="line-left">${plural(m,'min')} from now</span>
+    </div>
+    <p class="line-why">${why}</p>
+    <div class="line-act">
+      <button class="btn" data-act="arm">${ic('check')} Hold me to it</button>
+      <button class="btn ghost" data-act="alts" aria-haspopup="dialog">Other ways</button>
+    </div>
+  </section>`;
+}
+
+/* ---------- deadline row ------------------------------------------------ */
+function goalRow() {
+  const v = busVerdict();
+  let val, cls='';
+  if (state.deadline === null) val = 'Not set · tap to add';
+  else if (v.kind === 'fine')  val = `${hhmm(state.deadline)} · bus makes it with ${plural(v.slack,'min')} spare`;
+  else if (v.kind === 'tight') val = `${hhmm(state.deadline)} · bus only just makes it`;
+  else if (v.kind === 'late')  val = `${hhmm(state.deadline)} · bus is ${plural(v.slack,'min')} short`;
+  else if (v.kind === 'gone')  val = `${hhmm(state.deadline)} · this bus can't get you there`;
+  else                         val = `${hhmm(state.deadline)} · we can't say whether the bus makes it`;
+  return `<button class="goal" data-act="goal" aria-haspopup="dialog">
+    <span class="ic">${ic('cal')}</span>
+    <span class="goal-txt"><span class="goal-l">I need to be in the city by</span>
+      <span class="goal-v">${val}</span></span>
+    ${ic('chev','chev')}
+  </button>`;
+}
+
+/* ---------- alternatives ------------------------------------------------ */
+function altOptions() {
+  const out = [];
+  const s = S();
+  // 1. keep waiting for this bus
+  if (!isGone()) {
+    const a = arrivesCity();
+    out.push({
+      key:'wait', badge:ROUTE, icon:null, title:`Wait for this ${ROUTE}`,
+      sub: isStale() ? `Last estimate ${hhmm(s.arr)} · ${plural(feedAge(),'min')} old, not current`
+                     : `Arrives ${hhmm(s.arr)}, in the city ${hhmm(a)}`,
+      right: FARE, arrive: isStale() ? null : a, tag: null, unknown: isStale()
+    });
+  }
+  // 2. walk + train
+  const b = backup();
+  const nextTrain = TRAINS.find(t => t >= S().now + WALK_TRAIN);
+  if (nextTrain) {
+    out.push({
+      key:'train', badge:null, icon:'train', title:'Walk to Auchenflower',
+      sub:`${plural(WALK_TRAIN,'min')} walk, then the ${hhmm(nextTrain)} Ipswich line`,
+      right: FARE, arrive: nextTrain + TRAIN_RIDE, tag:'Backup'
+    });
+  }
+  // 3. later 470
+  const later = LATER_470.find(t => t > S().now + 2);
+  if (later) out.push({
+    key:'later', badge:ROUTE, icon:null, title:`The next ${ROUTE}`,
+    sub:`Timetabled ${hhmm(later)} · same stop`, right: FARE, arrive: later + RIDE, tag:null
+  });
+  // 4. rideshare — deliberately last and deliberately priced
+  out.push({
+    key:'car', badge:null, icon:'car', title:'Rideshare',
+    sub:`About ${plural(RIDESHARE.mins,'min')} door to door`,
+    right: RIDESHARE.cost, arrive: S().now + RIDESHARE.mins, tag:null, cost:true
+  });
+  return out;
+}
+
+function altList() {
+  const opts = altOptions().slice(0,3);
+  const b = backup();
+  return `<section class="alts" aria-label="Other ways to get there">
+    <div class="alts-h"><h2>If you don't wait</h2>
+      <button class="demo-btn" data-act="alts" aria-haspopup="dialog" style="padding:5px 10px">All options ${ic('arrow','sm')}</button></div>
+    ${opts.map(o => altRow(o)).join('')}
+  </section>`;
+}
+
+function altRow(o) {
+  const makesIt = state.deadline !== null && o.arrive !== null && o.arrive <= state.deadline;
+  const best = o.key === 'train' && linePassed();
+  return `<button class="alt${best?' best':''}" data-act="alts" aria-haspopup="dialog">
+    <span class="badge">${o.badge ? esc(o.badge) : ic(o.icon)}</span>
+    <span class="alt-txt">
+      <span class="alt-t">${esc(o.title)}${o.tag?` <span class="tag">${esc(o.tag)}</span>`:''}${o.cost?` <span class="tag cost">costs money</span>`:''}</span>
+      <span class="alt-s">${esc(o.sub)}</span>
+    </span>
+    <span class="alt-r">
+      <span class="big">${o.arrive!==null?hhmm(o.arrive):'—'}</span>
+      <span class="small ${o.unknown||state.deadline===null?'':makesIt?'ok':'no'}">${
+        o.unknown ? 'unknown'
+        : state.deadline===null ? esc(o.right)
+        : makesIt ? `${plural(state.deadline-o.arrive,'min')} spare` : 'too late'}</span>
+    </span>
+  </button>`;
+}
+
+function footer() {
+  return `<div class="foot">
+    <span>Simulated service &amp; times</span><span class="dot"></span>
+    <span>${hhmm(S().now)}</span><span class="dot"></span>
+    <button data-act="about" style="color:inherit;text-decoration:underline">About this demo</button>
+  </div>`;
+}
+
+/* ========================================================================
+   SHEETS
+   ====================================================================== */
+function openSheet(title, body) {
+  lastFocus = document.activeElement;
+  $('sheet-title').textContent = title;
+  $('sheet-b').innerHTML = body;
+  $('sheet').hidden = false; $('shade').hidden = false;
+  state.sheet = title;
+  $('sheet-title').focus();
+}
+function closeSheet() {
+  $('sheet').hidden = true; $('shade').hidden = true; state.sheet = null;
+  if (lastFocus && document.contains(lastFocus)) lastFocus.focus();
+}
+
+function sheetHistory() {
+  const s = S(), d = drift();
+  const rows = s.trail.map((p,i) => {
+    const prev = i ? s.trail[i-1][1] : null;
+    const delta = prev === null ? null : p[1]-prev;
+    return `<div class="hrow${i?'':' first'}">
+      <span class="t">${hhmm(p[0])}</span>
+      <span class="p">said ${hhmm(p[1])}</span>
+      <span class="d ${delta?'':'zero'}">${delta===null?'first':delta===0?'no change':(delta>0?'+':'')+delta+' min'}</span>
+    </div>`;
+  }).join('');
+
+  const note = isGone()
+    ? `<div class="callout">${ic('alert','sm')} <b>Cancelled at ${hhmm(s.notice)}.</b> This is an operator notice.
+        The feed going quiet is a different thing, and we mark it differently on purpose:
+        "we don't know" and "it isn't coming" call for different decisions.</div>`
+    : isStale()
+    ? `<div class="callout"><b>Nothing new for ${plural(feedAge(),'min')}.</b> The bus may well be fine. We
+        simply haven't heard from it. We could keep a countdown ticking down on its own, but that
+        would be an animation rather than information.</div>`
+    : d.moves >= 3
+    ? `<div class="callout"><b>${d.moves} revisions in ${plural(d.span,'min')}</b>, every one later.
+        That pattern is a better guide than any single number on this screen.</div>`
+    : `<div class="callout calm"><b>Held steady since ${hhmm(d.first)}.</b> An estimate that stops
+        moving usually means the bus is on a clear run.</div>`;
+
+  return `${note}
+    <p class="small" style="margin-top:2px">Every estimate this service has published, newest last.</p>
+    <div class="hist">${rows}</div>
+    <div class="rowline"><span class="k">Vehicle last reported</span><span class="v ${isStale()?'warn':''}">${hhmm(s.feed)} · ${plural(feedAge(),'min')} ago</span></div>
+    <div class="rowline"><span class="k">Position</span><span class="v">${s.stops===null?'—':`${plural(s.stops,'stop')} before yours`}</span></div>
+    <div class="rowline"><span class="k">Source</span><span class="v">Operator real-time feed</span></div>
+    <p class="small">Most apps overwrite the previous estimate each time a new one arrives, so this
+      column of revisions is thrown away. It is already in the data. We just keep it.</p>`;
+}
+
+function sheetGoal() {
+  const opts = [T(14,45),T(15,0),T(15,15),T(15,30),T(16,0)];
+  const cur = state.draftDeadline !== undefined && state.draftDeadline !== null
+    ? state.draftDeadline : state.deadline;
+  return `<p>Everything else on the screen is worked backwards from this one answer.
+    Without it we can tell you when the bus might come; with it we can tell you when to stop waiting.</p>
+    <div class="chips" role="group" aria-label="Arrive-by time">
+      ${opts.map(t => `<button class="chip" data-act="pick-goal" data-v="${t}"
+        aria-pressed="${cur===t}">${hhmm(t)}</button>`).join('')}
+      <button class="chip" data-act="pick-goal" data-v="none" aria-pressed="${cur===null}">I'm flexible</button>
+    </div>
+    <div class="callout calm">${ic('info','sm')} "I'm flexible" is a real answer. Two of our seven
+      interviewees said the same delay barely registers on a casual trip. With no deadline set we
+      stop asking and just compare the next few departures.</div>
+    <p class="small">Stored in this tab only. Nothing leaves the page: no account, no location, no storage.</p>`;
+}
+
+function sheetAlts() {
+  const opts = altOptions();
+  const rows = opts.map(o => {
+    const makes = state.deadline!==null && o.arrive!==null && o.arrive<=state.deadline;
+    return `<div class="alt${o.key==='train'?' best':''}" style="cursor:default">
+      <span class="badge">${o.badge?esc(o.badge):ic(o.icon)}</span>
+      <span class="alt-txt"><span class="alt-t">${esc(o.title)}${o.cost?' <span class="tag cost">costs money</span>':''}</span>
+        <span class="alt-s">${esc(o.sub)}</span></span>
+      <span class="alt-r"><span class="big">${o.arrive!==null?hhmm(o.arrive):'—'}</span>
+        <span class="small ${o.unknown||state.deadline===null?'':makes?'ok':'no'}">${
+          o.unknown?'unknown':state.deadline===null?esc(o.right):makes?`${plural(state.deadline-o.arrive,'min')} spare`:'too late'}</span></span>
+    </div>`;
+  }).join('');
+  return `<p>Ordered by arrival time, not by what we'd rather you picked.</p>
+    ${rows}
+    <div class="callout">${ic('info','sm')} A ${FARE} fare and a ${RIDESHARE.cost} rideshare are not two
+      points on one scale. We put the paid option last and label it, because for a lot of people at this
+      stop it isn't an option at all. An interface that quietly assumes it is will read as a taunt.</div>
+    <p class="small">Walk times are straight-line demo estimates. A real build would need footpath routing,
+      step-free checks and after-dark route preferences before any of this is trustworthy.</p>`;
+}
+
+function sheetScenes() {
+  return `<p class="small">No live data. Step through one afternoon at Toowong Village and watch the
+    screen behave as the information gets worse. The last two are alternative endings to the same wait.</p>
+    ${SCENES.map((s,i) => `<button class="scene" data-act="pick-scene" data-v="${i}"
+      aria-current="${i===state.scene}">
+      <span class="n">${i+1}</span>
+      <span><span class="st">${esc(s.label)}</span><span class="ss">${esc(s.hint)} · ${hhmm(s.now)}</span></span>
+    </button>`).join('')}`;
+}
+
+function sheetAbout() {
+  return `<p><b>wait or go.</b> is a mid-fidelity prototype made for DECO2500/7250.
+    It is a design argument, not a transport service.</p>
+    <div class="callout">${ic('alert','sm')} <b>Everything is fabricated.</b> The stop name, the route
+      number and the roughly 20-minute weekday headway are real. Every arrival time, vehicle position,
+      cancellation and train connection below them is invented for the demo.</div>
+    <p><b>What it does not do.</b> No network requests. No location permission. No cookies, no
+      localStorage, no analytics. Close the tab and nothing survives.</p>
+    <p><b>The idea in one line.</b> Bus arrival estimates will keep being wrong, so stop competing on the
+      number and start competing on the decision: tell people the last moment their backup still works,
+      then let them stop looking at their phone.</p>
+    <p class="small">Built on seven rider interviews in Brisbane, Translink's published on-time running
+      data, and the observation that an app whose goal is for you to close it has no business model,
+      which is probably why nobody has built it.</p>`;
+}
+
+/* ========================================================================
+   ACTIONS
+   ====================================================================== */
+const ACTIONS = {
+  scenes:  () => openSheet('Pick a moment', sheetScenes()),
+  history: () => openSheet('Estimate history', sheetHistory()),
+  goal:    () => { state.draftDeadline = state.deadline; openSheet('When do you need to be there?', sheetGoal()); },
+  alts:    () => openSheet('Other ways to get there', sheetAlts()),
+  about:   () => openSheet('About this prototype', sheetAbout()),
+  close:   () => closeSheet(),
+
+  'pick-scene': el => {
+    state.scene = +el.dataset.v;
+    state.overrode = false;
+    closeSheet(); render();
+    announce(`${S().label}. ${S().hint}.`);
+  },
+  'pick-goal': el => {
+    const v = el.dataset.v;
+    state.deadline = v === 'none' ? null : +v;
+    state.armed = false; state.overrode = false;
+    closeSheet(); render();
+    const l = theLine();
+    toast(state.deadline === null
+      ? 'No deadline set. We\'ll compare the next few departures.'
+      : l ? `Your line moves to ${hhmm(l)}.` : 'No backup gets you there in time.', 'flag');
+  },
+  arm: () => {
+    state.armed = true; render();
+    toast(`Locked in. We'll interrupt you at ${hhmm(theLine())}, or when the bus turns up.`, 'check');
+  },
+  unarm: () => { state.armed = false; render(); announce('Line unlocked.'); },
+  quiet: () => { state.quiet = true; render(); announce('Quiet view. Your line is ' + hhmm(theLine()) + '.'); },
+  unquiet: () => { state.quiet = false; render(); },
+  'keep-waiting': () => {
+    state.overrode = true; state.quiet = false; render();
+    toast('Fine. We won\'t ask again this trip. The walk stays on the list if you change your mind.', 'info');
+  },
+  'take-backup': () => {
+    const b = backup();
+    state.quiet = false;
+    openSheet('Walking to ' + b.label, `
+      <div class="callout calm">${ic('walk','sm')} <b>${plural(WALK_TRAIN,'min')} on foot</b>, then the
+        ${hhmm(b.train)} train. In the city at <b>${hhmm(b.arrive)}</b>,
+        ${plural(state.deadline-b.arrive,'min')} inside your deadline.</div>
+      <p>A finished build would hand you off here: walking directions, the platform, and a nudge if the
+        train itself starts drifting. We stopped at the handoff because the decision is the part we're
+        testing, not the navigation.</p>
+      <p class="small">And if you get halfway and the ${ROUTE} sails past you, that's the failure mode we
+        most need to measure. A wrong walk-away line is worse than no line at all.</p>`);
+  }
+};
+
+/* Optional deep-link, so a particular moment can be opened directly:
+   ?scene=3&armed=1&quiet=1&goal=915   (goal in minutes since midnight, or "none") */
+(function readURL(){
+  const q = new URLSearchParams(location.search);
+  if (q.has('scene')) {
+    const i = SCENES.findIndex(s => s.id === q.get('scene'));
+    const n = i >= 0 ? i : parseInt(q.get('scene'),10);
+    if (Number.isInteger(n) && n >= 0 && n < SCENES.length) state.scene = n;
+  }
+  if (q.has('goal')) state.deadline = q.get('goal') === 'none' ? null : parseInt(q.get('goal'),10);
+  if (q.get('armed') === '1') state.armed = true;
+  if (q.get('quiet') === '1') { state.armed = true; state.quiet = true; }
+  if (q.get('waiting') === '1') state.overrode = true;
+})();
+
+document.addEventListener('click', e => {
+  const el = e.target.closest('[data-act]');
+  if (!el) return;
+  const fn = ACTIONS[el.dataset.act];
+  if (fn) { e.preventDefault(); fn(el); }
+});
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && state.sheet) { e.preventDefault(); closeSheet(); }
+});
+
+render();
+</script>
+</body>
+</html>
