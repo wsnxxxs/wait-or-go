@@ -23,7 +23,8 @@ closing the app, and a demo that tracked people would undercut it.
 
 ## Scenes
 
-Pick a moment from the control at the top right, or link straight to one.
+A walkthrough panel beside the phone steps through six moments of one afternoon, says what each one
+shows and what to try. Or link straight to one.
 
 | Link | What it shows |
 |---|---|
@@ -35,7 +36,7 @@ Pick a moment from the control at the top right, or link straight to one.
 | [`?scene=recovered`](https://wsnxxxs.github.io/wait-or-go/?scene=recovered) | Updates return and the bus beats the line |
 
 `goal` takes minutes since midnight (`915` = 3:15 pm) or `none`. `armed=1`, `quiet=1` and
-`waiting=1` set state directly.
+`waiting=1` set state directly. `guide=0` hides the walkthrough panel.
 
 ## Source
 
